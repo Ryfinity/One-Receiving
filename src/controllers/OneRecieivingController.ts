@@ -1,0 +1,200 @@
+const asndatabase = require('../config/asn');
+const { postAsnOutrightBarcodeData, postAsnScBarcodeData, postAsnOutrightBarcodeDetailsData, postAsnScBarcodeDetailsData } = require('../services/frappe-api');
+
+async function asnOutrightBarcode() {
+    try {
+        const query = `SELECT aob.asn_id
+                ,aob.identifier
+                ,aob.store_code
+                ,aob.department_code
+                ,aob.po_no
+                ,aob.invoice_no
+                ,aob.sku_no
+                ,aob.qty
+                ,aob.unit_cost
+                ,aob.total_box
+                ,aob.line_ender 
+                FROM asn_outright_barcode aob 
+            JOIN asn_request ar
+                ON 1=1
+            AND aob.asn_id = ar.asn_id
+            WHERE 1=1
+            AND ar.delivery_date = "2025-07-18"
+            AND aob.qty IS NOT NULL
+            AND ar.status = 1
+            ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no`;
+
+        const [countRows] = await asndatabase.query(`${query}`);
+        if (countRows.length === 0) {
+            console.log('❗️  No ASN Outright Barcode records found for today.');
+            return;
+        }
+        
+        const limit = 500;
+        const totalPages = Math.ceil(countRows.length / limit);
+
+        for (let i = 0; i < totalPages; i++) {
+            const offset = i * limit;
+            const [rows] = await asndatabase.query(`${query} LIMIT ${limit} OFFSET ${offset}`);
+            console.log(`📄  Page ${i + 1} of ${totalPages}: Fetched ${rows.length} records. Offset: ${offset}`);
+            await postAsnOutrightBarcodeData(rows).catch(console.error);
+        }
+
+        console.log(`#️⃣  Total ASN Outright Barcode records: ${totalPages}`);
+        console.log(`#️⃣  Fetched ${countRows.length} ASN Outright Barcode records.`);
+    } catch (error) {
+        console.error('❌  Error fetching ASN Outright Barcode data:', error);
+    }
+}
+
+async function asnScBarcode() {
+    try {
+        const query = `SELECT asb.asn_id
+                ,asb.identifier
+                ,asb.store_code
+                ,asb.vendor_code
+                ,asb.dr_number
+                ,asb.dept_code
+                ,asb.sub_dept_code
+                ,asb.class_code
+                ,asb.total_box
+                ,asb.box_no
+                ,asb.amount
+                ,asb.line_ender 
+            FROM asn_sc_barcode asb 
+            JOIN asn_request ar
+                ON 1=1
+            AND asb.asn_id = ar.asn_id
+            WHERE 1=1
+            AND ar.delivery_date = "2025-07-18"
+            AND ar.status = 1
+            ORDER BY asb.asn_id, asb.store_code, asb.vendor_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code`;
+    
+        const [countRows] = await asndatabase.query(`${query}`);
+        if (countRows.length === 0) {
+            console.log('❗️  No ASN SC Barcode records found for today.');
+            return;
+        }
+        
+        const limit = 500;
+        const totalPages = Math.ceil(countRows.length / limit);
+
+        for (let i = 0; i < totalPages; i++) {
+            const offset = i * limit;
+            const [rows] = await asndatabase.query(`${query} LIMIT ${limit} OFFSET ${offset}`);
+            console.log(`📄  Page ${i + 1} of ${totalPages}: Fetched ${rows.length} records. Offset: ${offset}`);
+            await postAsnScBarcodeData(rows).catch(console.error);
+        }
+
+        console.log(`#️⃣  Total ASN SC Barcode records: ${totalPages}`);
+        console.log(`#️⃣  Fetched ${countRows.length} ASN SC Barcode records.`);
+
+    } catch (error) {
+        console.error('❌  Error fetching ASN SC Barcode data:', error);
+    }
+}
+
+async function asnBarcodeDetails(message: string, topic: string, partition: any) {
+    try {
+        const data = JSON.parse(message).data;
+        const barcode = JSON.parse(data).barcode;
+        const barcodes = barcode.split('\n');
+        const identifier = barcodes[0].split(',')[0]; 
+
+        if (identifier == "ORRA") {
+            await asnOutrightBarcodeDetails(message, topic, partition)
+        } else if(identifier == "SCDS") {
+            await asnScBarcodeDetails(message, topic, partition)
+        } else {
+            console.log("❓  Unknow Indentifier.")
+        }
+    } catch (error) {
+        console.error(`❌  Error processing ASN Barcode details: ${error}`);
+    }
+}
+
+async function asnOutrightBarcodeDetails(message: string, topic: string, partition: any) {
+    try {
+        const data = JSON.parse(message).data;
+        const device = JSON.parse(message).device;
+        const barcode = JSON.parse(data).barcode;
+        const barcodes = barcode.split('\n');
+
+        barcodes.forEach(async (item: any) => {
+            const [identifier, store_code, department_code, po_no, invoice_no, sku_no, qty, unit_cost, total_box, sequence, line_ender] = item.split(',');
+            const outrightBarcode = {
+                uid: JSON.parse(data).uid,
+                userid: JSON.parse(data).userid,
+                clientid: JSON.parse(data).clientid,
+                deviceno: JSON.parse(data).deviceno,
+                manufacturer: JSON.parse(device).manufacturer,
+                fingerprint: JSON.parse(device).fingerprint,
+                model: JSON.parse(device).model,
+                topic: topic,
+                partition: partition,
+                identifier: identifier,
+                store_code: parseInt(store_code),
+                department_code: parseInt(department_code),
+                po_no: parseInt(po_no),
+                invoice_no: invoice_no,
+                sku_no: parseInt(sku_no),
+                qty: parseInt(qty),
+                unit_cost: parseInt(unit_cost),
+                total_box: parseInt(total_box),
+                sequence: parseInt(sequence),
+                line_ender: line_ender
+            };
+            await postAsnOutrightBarcodeDetailsData(outrightBarcode).catch(console.error);
+        });
+        console.log(`📦  Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
+    } catch (error) {
+        console.error(`❌  Error processing ASN Outright Barcode details: ${error}`);
+    }
+}
+
+async function asnScBarcodeDetails(message: string, topic: string, partition: any) {
+    try {
+        const data = JSON.parse(message).data;
+        const device = JSON.parse(message).device;
+        const barcode = JSON.parse(data).barcode;
+        const barcodes = barcode.split('\n');
+
+        barcodes.forEach(async (item: any) => {
+            const [identifier, store_code, vendor_code, dr_number, dept_code, sub_dept_code, class_code, total_box, box_no, amount, line_ender] = item.split(',');
+            const scBarcode = {
+                uid: JSON.parse(data).uid,
+                userid: JSON.parse(data).userid,
+                clientid: JSON.parse(data).clientid,
+                deviceno: JSON.parse(data).deviceno,
+                manufacturer: JSON.parse(device).manufacturer,
+                fingerprint: JSON.parse(device).fingerprint,
+                model: JSON.parse(device).model,
+                topic: topic,
+                partition: partition,
+                identifier: identifier,
+                store_code: parseInt(store_code),
+                vendor_code: parseInt(vendor_code),
+                dr_number: dr_number,
+                dept_code: parseInt(dept_code),
+                sub_dept_code: parseInt(sub_dept_code),
+                class_code: parseInt(class_code),
+                total_box: parseInt(total_box),
+                box_no: box_no,
+                amount: parseFloat(amount),
+                line_ender: line_ender
+            };
+            await postAsnScBarcodeDetailsData(scBarcode).catch(console.error);
+        });
+        console.log(`📦  Processing ASN SC Barcode details for topic: ${topic}, partition: ${partition}`);
+    } catch (error) {
+        console.error(`❌  Error processing ASN SC Barcode details: ${error}`);
+    }
+}
+
+module.exports = {
+    asnOutrightBarcode,
+    asnScBarcode,
+    asnOutrightBarcodeDetails,
+    asnScBarcodeDetails,
+    asnBarcodeDetails
+};
