@@ -1,11 +1,15 @@
 const asndatabase = require('../config/asn');
+const helpers = require('../utils/helpers');
 const { postAsnOutrightBarcodeData, postAsnScBarcodeData, postAsnOutrightBarcodeDetailsData, postAsnScBarcodeDetailsData } = require('../services/frappe-api');
 
 async function asnOutrightBarcode() {
     try {
-        const query = `SELECT aob.asn_id
+        const query = `SELECT DISTINCT aob.asn_id
                 ,aob.identifier
+                ,ar.vendor_code
+                ,ar.vendor_name
                 ,aob.store_code
+                ,SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')+1) store_name
                 ,aob.department_code
                 ,aob.po_no
                 ,aob.invoice_no
@@ -14,34 +18,39 @@ async function asnOutrightBarcode() {
                 ,aob.unit_cost
                 ,aob.total_box
                 ,aob.line_ender 
-                FROM asn_outright_barcode aob 
+                ,aw.name AS dc_rdu_name
+            FROM asn_outright_barcode aob 
             JOIN asn_request ar
                 ON 1=1
             AND aob.asn_id = ar.asn_id
+            LEFT OUTER
+            JOIN asn_details ad
+                ON ad.asn_id = ar.asn_id
+            AND ad.type = 2
+            AND aob.store_code = SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),1,INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')-1) 
+            JOIN asn_warehouse aw
+                ON ar.warehouse_type = aw.dc
             WHERE 1=1
-            AND ar.delivery_date = "2025-07-18"
+            AND ar.delivery_date = "2025-08-01"
             AND aob.qty IS NOT NULL
             AND ar.status = 1
-            ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no`;
+            ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no;`;
 
-        const [countRows] = await asndatabase.query(`${query}`);
-        if (countRows.length === 0) {
+        const [rows] = await asndatabase.query(`${query}`);
+        if (rows.length === 0) {
             console.log('❗️  No ASN Outright Barcode records found for today.');
             return;
         }
-        
-        const limit = 500;
-        const totalPages = Math.ceil(countRows.length / limit);
 
-        for (let i = 0; i < totalPages; i++) {
-            const offset = i * limit;
-            const [rows] = await asndatabase.query(`${query} LIMIT ${limit} OFFSET ${offset}`);
-            console.log(`📄  Page ${i + 1} of ${totalPages}: Fetched ${rows.length} records. Offset: ${offset}`);
-            await postAsnOutrightBarcodeData(rows).catch(console.error);
+        const limit = 500;
+        const chunks = await helpers.chunkData(rows, limit);
+        
+        for (let i = 0; i < chunks.length; i++) {
+            await postAsnOutrightBarcodeData(chunks[i]).catch(console.error);
         }
 
-        console.log(`#️⃣  Total ASN Outright Barcode records: ${totalPages}`);
-        console.log(`#️⃣  Fetched ${countRows.length} ASN Outright Barcode records.`);
+        console.log(`#️⃣  Total chunk data for ASN Outright Barcode: ${chunks.length}`);
+        console.log(`#️⃣  Fetched ${rows.length} ASN Outright Barcode records.`);
     } catch (error) {
         console.error('❌  Error fetching ASN Outright Barcode data:', error);
     }
@@ -49,10 +58,12 @@ async function asnOutrightBarcode() {
 
 async function asnScBarcode() {
     try {
-        const query = `SELECT asb.asn_id
+        const query = `SELECT DISTINCT asb.asn_id
                 ,asb.identifier
                 ,asb.store_code
-                ,asb.vendor_code
+                ,avd.store_name
+                ,ar.vendor_code
+                ,ar.vendor_name
                 ,asb.dr_number
                 ,asb.dept_code
                 ,asb.sub_dept_code
@@ -61,33 +72,42 @@ async function asnScBarcode() {
                 ,asb.box_no
                 ,asb.amount
                 ,asb.line_ender 
+                ,avd.validation
+                ,aw.name AS dc_rdu_name
             FROM asn_sc_barcode asb 
             JOIN asn_request ar
-                ON 1=1
+                    ON 1=1
             AND asb.asn_id = ar.asn_id
+            JOIN asn_vdr_data avd
+                    ON asb.dr_number = avd.vdr_number 
+            AND asb.dept_code=avd.dept_code  
+            AND asb.sub_dept_code = avd.sub_dept_code
+            AND asb.class_code = avd.class_code
+            AND asb.vendor_code=avd.vendor_code
+            AND avd.validation = 1
+            JOIN asn_warehouse aw
+                ON 1=1
+            AND ar.warehouse_type = aw.dc
             WHERE 1=1
-            AND ar.delivery_date = "2025-07-18"
+            AND ar.delivery_date = "2025-08-01"
             AND ar.status = 1
-            ORDER BY asb.asn_id, asb.store_code, asb.vendor_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code`;
+            ORDER BY asb.asn_id, asb.store_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code;`;
     
-        const [countRows] = await asndatabase.query(`${query}`);
-        if (countRows.length === 0) {
+        const [rows] = await asndatabase.query(`${query}`);
+        if (rows.length === 0) {
             console.log('❗️  No ASN SC Barcode records found for today.');
             return;
         }
-        
-        const limit = 500;
-        const totalPages = Math.ceil(countRows.length / limit);
 
-        for (let i = 0; i < totalPages; i++) {
-            const offset = i * limit;
-            const [rows] = await asndatabase.query(`${query} LIMIT ${limit} OFFSET ${offset}`);
-            console.log(`📄  Page ${i + 1} of ${totalPages}: Fetched ${rows.length} records. Offset: ${offset}`);
-            await postAsnScBarcodeData(rows).catch(console.error);
+        const limit = 500;
+        const chunks = await helpers.chunkData(rows, limit);
+        
+        for (let i = 0; i < chunks.length; i++) {
+            await postAsnScBarcodeData(chunks[i]).catch(console.error);
         }
 
-        console.log(`#️⃣  Total ASN SC Barcode records: ${totalPages}`);
-        console.log(`#️⃣  Fetched ${countRows.length} ASN SC Barcode records.`);
+        console.log(`#️⃣  Total chunk data for ASN SC Barcode: ${chunks.length}`);
+        console.log(`#️⃣  Fetched ${rows.length} ASN SC Barcode records.`);
 
     } catch (error) {
         console.error('❌  Error fetching ASN SC Barcode data:', error);
