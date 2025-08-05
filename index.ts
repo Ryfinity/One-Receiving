@@ -8,6 +8,9 @@
 // const kafkaConsumer = require('./src/services/kafka-consumer');
 // kafkaConsumer.main();
 
+// const kafkaProducer = require('./src/services/kafka-producer');
+// kafkaProducer.main();
+
 // const frappe = require("./src/services/frappe-api");
 // frappe.postLogin();
 

@@ -1,4 +1,5 @@
 const axios = require('../config/axios');
+const kafkaProducer = require('./kafka-producer');
 
 async function postHeaderData(data: any): Promise<any> {
     try {
@@ -104,6 +105,10 @@ async function postAsnOutrightBarcodeDetailsData(data: any): Promise<any> {
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
         }
+        if (response.data.message.status == 'invalid') {
+            kafkaProducer.main(response.data.message)
+            console.error('❌  Invalid Outright Detail');
+        }
         return response.data;
     } catch (error) {
         console.error('❌  Error processing ASN Outright Barcode details data:', error);
@@ -116,6 +121,10 @@ async function postAsnScBarcodeDetailsData(data: any): Promise<any> {
         console.log('✅  ASN SC Barcode details data posted successfully:', response.data);
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
+        }
+        if (response.data.message.status == 'invalid') {
+            kafkaProducer.main(response.data.message)
+            console.error('❌  Invalid SC Detail');
         }
         return response.data;
     } catch (error) {
