@@ -11,6 +11,7 @@ async function asnOutrightBarcode() {
                 ,aob.store_code
                 ,SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')+1) store_name
                 ,aob.department_code
+                ,adept.department_name
                 ,aob.po_no
                 ,aob.invoice_no
                 ,aob.sku_no
@@ -19,6 +20,7 @@ async function asnOutrightBarcode() {
                 ,aob.total_box
                 ,aob.line_ender 
                 ,aw.name AS dc_rdu_name
+                ,ar.delivery_date
             FROM asn_outright_barcode aob 
             JOIN asn_request ar
                 ON 1=1
@@ -30,8 +32,10 @@ async function asnOutrightBarcode() {
             AND aob.store_code = SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),1,INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')-1) 
             JOIN asn_warehouse aw
                 ON ar.warehouse_type = aw.dc
+            JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
+                ON adept.department_code = aob.department_code
             WHERE 1=1
-            AND ar.delivery_date = "2025-08-01"
+            AND ar.delivery_date = CURDATE()
             AND aob.qty IS NOT NULL
             AND ar.status = 1
             ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no;`;
@@ -66,6 +70,7 @@ async function asnScBarcode() {
                 ,ar.vendor_name
                 ,asb.dr_number
                 ,asb.dept_code
+                ,adept.department_name
                 ,asb.sub_dept_code
                 ,asb.class_code
                 ,asb.total_box
@@ -74,6 +79,7 @@ async function asnScBarcode() {
                 ,asb.line_ender 
                 ,avd.validation
                 ,aw.name AS dc_rdu_name
+                ,ar.delivery_date
             FROM asn_sc_barcode asb 
             JOIN asn_request ar
                     ON 1=1
@@ -88,10 +94,13 @@ async function asnScBarcode() {
             JOIN asn_warehouse aw
                 ON 1=1
             AND ar.warehouse_type = aw.dc
+            LEFT OUTER 
+            JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
+                ON adept.department_code = asb.dept_code
             WHERE 1=1
-            AND ar.delivery_date = "2025-08-01"
+            AND ar.delivery_date = CURDATE()
             AND ar.status = 1
-            ORDER BY asb.asn_id, asb.store_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code;`;
+            ORDER BY asb.asn_id, asb.store_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code`;
     
         const [rows] = await asndatabase.query(`${query}`);
         if (rows.length === 0) {
@@ -162,7 +171,10 @@ async function asnOutrightBarcodeDetails(message: string, topic: string, partiti
                 unit_cost: parseInt(unit_cost),
                 total_box: parseInt(total_box),
                 sequence: parseInt(sequence),
-                line_ender: line_ender
+                line_ender: line_ender,
+                pdt_location: JSON.parse(data).pdtlocation,
+                asn_ids: JSON.parse(data).asnid
+
             };
             await postAsnOutrightBarcodeDetailsData(outrightBarcode).catch(console.error);
         });
@@ -201,7 +213,9 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
                 total_box: parseInt(total_box),
                 box_no: box_no,
                 amount: parseFloat(amount),
-                line_ender: line_ender
+                line_ender: line_ender,
+                pdt_location: JSON.parse(data).pdtlocation,
+                asn_ids: JSON.parse(data).asnid
             };
             await postAsnScBarcodeDetailsData(scBarcode).catch(console.error);
         });
