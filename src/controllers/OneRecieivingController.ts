@@ -80,6 +80,7 @@ async function asnScBarcode() {
                 ,avd.validation
                 ,aw.name AS dc_rdu_name
                 ,ar.delivery_date
+                ,adept.class_name
             FROM asn_sc_barcode asb 
             JOIN asn_request ar
                     ON 1=1
