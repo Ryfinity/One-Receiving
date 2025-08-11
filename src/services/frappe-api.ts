@@ -132,9 +132,22 @@ async function postAsnScBarcodeDetailsData(data: any): Promise<any> {
     }
 }
 
-async function getOutrightSummary(data: any):  Promise<any> {
+async function getScOutrightSummary(data: any):  Promise<any> {
     try {
         const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.get_outright_summary', data)
+        console.log('✅  ASN Outright Barcode summary:', response.data);
+        if (response.data.message.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+        return response.data;
+    } catch (error) {
+        console.error('❌  Error processing ASN Outright Barcode summary data:', error);
+    }
+}
+
+async function getScOutrightDetails(data: any):  Promise<any> {
+    try {
+        const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.get_sc_outright_detail', data)
         console.log('✅  ASN Outright Barcode summary:', response.data);
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
@@ -155,5 +168,6 @@ module.exports = {
     postAsnScBarcodeData,
     postAsnOutrightBarcodeDetailsData,
     postAsnScBarcodeDetailsData,
-    getOutrightSummary
+    getScOutrightSummary,
+    getScOutrightDetails
 };
