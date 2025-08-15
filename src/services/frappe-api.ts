@@ -105,7 +105,7 @@ async function postAsnOutrightBarcodeDetailsData(data: any): Promise<any> {
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
         }
-        if (response.data.message.status == 'invalid') {
+        if (response.data.message.status == 'failed') {
             kafkaProducer.main(response.data.message)
             console.error('❌  Invalid Outright Detail');
         }
@@ -122,7 +122,7 @@ async function postAsnScBarcodeDetailsData(data: any): Promise<any> {
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
         }
-        if (response.data.message.status == 'invalid') {
+        if (response.data.message.status == 'failed') {
             kafkaProducer.main(response.data.message)
             console.error('❌  Invalid SC Detail');
         }
@@ -158,6 +158,23 @@ async function getScOutrightDetails(data: any):  Promise<any> {
     }
 }
 
+async function submitSummary(data: any):  Promise<any> {
+    try {
+        return data;
+    } catch (error) {
+        console.error('❌  Error processing ASN Submit Barcode summary:', error);
+    }
+}
+
+async function submitReject(data: any):  Promise<any> {
+    try {
+        return data;
+    } catch (error) {
+        console.error('❌  Error processing ASN Reject Barcode summary:', error);
+    }
+}
+
+
 module.exports = {
     postHeaderData, 
     postDetailData,
@@ -169,5 +186,7 @@ module.exports = {
     postAsnOutrightBarcodeDetailsData,
     postAsnScBarcodeDetailsData,
     getScOutrightSummary,
-    getScOutrightDetails
+    getScOutrightDetails,
+    submitSummary,
+    submitReject
 };

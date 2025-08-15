@@ -133,7 +133,11 @@ async function asnBarcodeDetails(message: string, topic: string, partition: any)
 
         if (identifier == "ORRA") {
             await asnOutrightBarcodeDetails(message, topic, partition)
+        } else if(identifier == "ORDS") {
+            await asnOutrightBarcodeDetails(message, topic, partition)
         } else if(identifier == "SCDS") {
+            await asnScBarcodeDetails(message, topic, partition)
+        } else if(identifier == "SCRA") {
             await asnScBarcodeDetails(message, topic, partition)
         } else {
             console.log("❓  Unknow Indentifier.")
