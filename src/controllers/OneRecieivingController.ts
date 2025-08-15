@@ -174,8 +174,8 @@ async function asnOutrightBarcodeDetails(message: string, topic: string, partiti
                 sequence: parseInt(sequence),
                 line_ender: line_ender,
                 pdt_location: JSON.parse(data).pdtlocation,
-                asn_ids: JSON.parse(data).asnid
-
+                asn_ids: JSON.parse(data).asnid,
+                has_asnid: JSON.parse(data).has_asnid
             };
             await postAsnOutrightBarcodeDetailsData(outrightBarcode).catch(console.error);
         });
@@ -216,7 +216,8 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
                 amount: parseFloat(amount),
                 line_ender: line_ender,
                 pdt_location: JSON.parse(data).pdtlocation,
-                asn_ids: JSON.parse(data).asnid
+                asn_ids: JSON.parse(data).asnid,
+                has_asnid: JSON.parse(data).has_asnid
             };
             await postAsnScBarcodeDetailsData(scBarcode).catch(console.error);
         });

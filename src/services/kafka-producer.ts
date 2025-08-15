@@ -4,7 +4,7 @@ const { asnOutrightBarcodeDetails, asnBarcodeDetails } = require('../controllers
 const kafkaBroker = process.env.KAFKA_BROKER;
 const kafkaClientId = process.env.KAFKA_CLIENT_ID;
 const kafkaGroupId = process.env.KAFKA_GROUP_ID;
-const kafkaTopic =  "onepdt-rcv-scan-producer"// process.env.KAFKA_TOPIC;
+const kafkaTopic = process.env.KAFKA_PRODUCER_TOPIC;
 
 const kafkaProducer = new Kafka({
     clientId: kafkaClientId,
