@@ -4,7 +4,7 @@ const { asnOutrightBarcodeDetails, asnBarcodeDetails } = require('../controllers
 const kafkaBroker = process.env.KAFKA_BROKER;
 const kafkaClientId = process.env.KAFKA_CLIENT_ID;
 const kafkaGroupId = process.env.KAFKA_GROUP_ID;
-const kafkaTopic = process.env.KAFKA_TOPIC;
+const kafkaTopic = process.env.KAFKA_CONSUMER_TOPIC;
 
 const kafkaConsumer = new Kafka({
     clientId: kafkaClientId,
