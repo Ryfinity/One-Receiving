@@ -1,5 +1,6 @@
 const asndatabase = require('../config/asn');
 const helpers = require('../utils/helpers');
+const kafkaProducer = require('../services/kafka-producer');
 const { postAsnOutrightBarcodeData, postAsnScBarcodeData, postAsnOutrightBarcodeDetailsData, postAsnScBarcodeDetailsData } = require('../services/frappe-api');
 
 async function asnOutrightBarcode() {
@@ -133,7 +134,11 @@ async function asnBarcodeDetails(message: string, topic: string, partition: any)
 
         if (identifier == "ORRA") {
             await asnOutrightBarcodeDetails(message, topic, partition)
+        } else if(identifier == "ORDS") {
+            await asnOutrightBarcodeDetails(message, topic, partition)
         } else if(identifier == "SCDS") {
+            await asnScBarcodeDetails(message, topic, partition)
+        } else if(identifier == "SCRA") {
             await asnScBarcodeDetails(message, topic, partition)
         } else {
             console.log("❓  Unknow Indentifier.")
@@ -145,43 +150,70 @@ async function asnBarcodeDetails(message: string, topic: string, partition: any)
 
 async function asnOutrightBarcodeDetails(message: string, topic: string, partition: any) {
     try {
-        const data = JSON.parse(message).data;
-        const device = JSON.parse(message).device;
-        const barcode = JSON.parse(data).barcode;
-        const barcodes = barcode.split('\n');
+        const parsedMessage = JSON.parse(message);
+        const data = JSON.parse(parsedMessage.data);
+        const device = JSON.parse(parsedMessage.device);
+        const barcodes = data.barcode.split('\n');
 
-        barcodes.forEach(async (item: any) => {
-            const [identifier, store_code, department_code, po_no, invoice_no, sku_no, qty, unit_cost, total_box, sequence, line_ender] = item.split(',');
+        let lastData: any = [];
+
+        for (const item of barcodes) {
+            const [
+                identifier,
+                store_code,
+                department_code,
+                po_no,
+                invoice_no,
+                sku_no,
+                qty,
+                unit_cost,
+                total_box,
+                sequence,
+                line_ender
+            ] = item.split(',');
+
             const outrightBarcode = {
-                uid: JSON.parse(data).uid,
-                userid: JSON.parse(data).userid,
-                clientid: JSON.parse(data).clientid,
-                deviceno: JSON.parse(data).deviceno,
-                manufacturer: JSON.parse(device).manufacturer,
-                fingerprint: JSON.parse(device).fingerprint,
-                model: JSON.parse(device).model,
-                topic: topic,
-                partition: partition,
-                identifier: identifier,
+                uid: data.uid,
+                userid: data.userid,
+                clientid: data.clientid,
+                deviceno: data.deviceno,
+                manufacturer: device.manufacturer,
+                fingerprint: device.fingerprint,
+                model: device.model,
+                topic,
+                partition,
+                identifier,
                 store_code: parseInt(store_code),
                 department_code: parseInt(department_code),
                 po_no: parseInt(po_no),
-                invoice_no: invoice_no,
+                invoice_no,
                 sku_no: parseInt(sku_no),
                 qty: parseInt(qty),
                 unit_cost: parseInt(unit_cost),
                 total_box: parseInt(total_box),
                 sequence: parseInt(sequence),
-                line_ender: line_ender,
-                pdt_location: JSON.parse(data).pdtlocation,
-                asn_ids: JSON.parse(data).asnid,
-                has_asnid: JSON.parse(data).has_asnid
+                line_ender,
+                pdt_location: data.pdtlocation,
+                asn_ids: data.asnid,
+                has_asnid: data.has_asnid
             };
-            await postAsnOutrightBarcodeDetailsData(outrightBarcode).catch(console.error);
-        });
-        console.log(`📦  Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
+
+            const result = await postAsnOutrightBarcodeDetailsData(outrightBarcode);
+            lastData.push(result);
+        }
+        const response = lastData[lastData.length - 1].message;
+
+        if (response.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+        if (response.status == 'failed') {
+            kafkaProducer.main(lastData[lastData.length - 1].message)
+            console.error('❌  Invalid Outright Detail');
+        }
+
+        console.log(`📦 Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
     } catch (error) {
-        console.error(`❌  Error processing ASN Outright Barcode details: ${error}`);
+        console.error(`❌ Error processing ASN Outright Barcode details: ${error}`);
     }
 }
 
@@ -192,8 +224,23 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
         const barcode = JSON.parse(data).barcode;
         const barcodes = barcode.split('\n');
 
-        barcodes.forEach(async (item: any) => {
-            const [identifier, store_code, vendor_code, dr_number, dept_code, sub_dept_code, class_code, total_box, box_no, amount, line_ender] = item.split(',');
+        let lastData: any = [];
+
+        for (const item of barcodes) {
+            const [
+                identifier, 
+                store_code, 
+                vendor_code, 
+                dr_number, 
+                dept_code, 
+                sub_dept_code, 
+                class_code, 
+                total_box, 
+                box_no, 
+                amount, 
+                line_ender
+            ] = item.split(',');
+            
             const scBarcode = {
                 uid: JSON.parse(data).uid,
                 userid: JSON.parse(data).userid,
@@ -219,8 +266,19 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
                 asn_ids: JSON.parse(data).asnid,
                 has_asnid: JSON.parse(data).has_asnid
             };
-            await postAsnScBarcodeDetailsData(scBarcode).catch(console.error);
-        });
+            const result = await postAsnScBarcodeDetailsData(scBarcode);
+            lastData.push(result);
+        }
+        const response = lastData[lastData.length - 1].message;
+
+        if (response.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+        if (response.status == 'failed') {
+            kafkaProducer.main(lastData[lastData.length - 1].message)
+            console.error('❌  Invalid SC Detail');
+        }
+
         console.log(`📦  Processing ASN SC Barcode details for topic: ${topic}, partition: ${partition}`);
     } catch (error) {
         console.error(`❌  Error processing ASN SC Barcode details: ${error}`);
