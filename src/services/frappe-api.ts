@@ -102,13 +102,7 @@ async function postAsnOutrightBarcodeDetailsData(data: any): Promise<any> {
     try {
         const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.insert_outright_barcode_details', data)
         console.log('✅  ASN Outright Barcode details data posted successfully:', response.data);
-        if (response.data.message.status == 'error') {
-            console.error('❌  Need to logs this error');
-        }
-        if (response.data.message.status == 'failed') {
-            kafkaProducer.main(response.data.message)
-            console.error('❌  Invalid Outright Detail');
-        }
+        
         return response.data;
     } catch (error) {
         console.error('❌  Error processing ASN Outright Barcode details data:', error);
@@ -119,13 +113,7 @@ async function postAsnScBarcodeDetailsData(data: any): Promise<any> {
     try {
         const response = await axios.post('/api/method/smr_asn.api.or_asn_sc_barcode_api.insert_sc_barcode_details', data)
         console.log('✅  ASN SC Barcode details data posted successfully:', response.data);
-        if (response.data.message.status == 'error') {
-            console.error('❌  Need to logs this error');
-        }
-        if (response.data.message.status == 'failed') {
-            kafkaProducer.main(response.data.message)
-            console.error('❌  Invalid SC Detail');
-        }
+
         return response.data;
     } catch (error) {
         console.error('❌  Error processing ASN SC Barcode details data:', error);
