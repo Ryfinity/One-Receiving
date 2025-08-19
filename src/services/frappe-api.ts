@@ -148,7 +148,13 @@ async function getScOutrightDetails(data: any):  Promise<any> {
 
 async function submitSummary(data: any):  Promise<any> {
     try {
-        return data;
+        const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.submit_sc_outright_barcode', data)
+        console.log('✅  ASN Submit SC and Outright Barcode Summary:', response.data);
+        if (response.data.message.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+
+        return response.data;
     } catch (error) {
         console.error('❌  Error processing ASN Submit Barcode summary:', error);
     }
@@ -156,7 +162,13 @@ async function submitSummary(data: any):  Promise<any> {
 
 async function submitReject(data: any):  Promise<any> {
     try {
-        return data;
+        const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.reject_sc_outright_barcode', data)
+        console.log('✅  ASN Submit SC and Outright Barcode Summary:', response.data);
+        if (response.data.message.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+
+        return response.data;
     } catch (error) {
         console.error('❌  Error processing ASN Reject Barcode summary:', error);
     }
