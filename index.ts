@@ -1,15 +1,15 @@
 // const fileController = require('./src/controllers/FileController');
 // fileController.quantityFiles();
 
-// const oneReceivingController = require('./src/controllers/OneRecieivingController');
-// oneReceivingController.asnOutrightBarcode();
+const oneReceivingController = require('./src/controllers/OneRecieivingController');
+oneReceivingController.asnOutrightBarcode();
 // oneReceivingController.asnScBarcode();
 
-const kafkaConsumer = require('./src/services/kafka-consumer');
-kafkaConsumer.main();
+// const kafkaConsumer = require('./src/services/kafka-consumer');
+// kafkaConsumer.main();
 
-const kafkaProducer = require('./src/services/kafka-producer');
-kafkaProducer.main();
+// const kafkaProducer = require('./src/services/kafka-producer');
+// kafkaProducer.main();
 
 // const frappe = require("./src/services/frappe-api");
 // frappe.postLogin();

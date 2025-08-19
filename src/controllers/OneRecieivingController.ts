@@ -211,6 +211,11 @@ async function asnOutrightBarcodeDetails(message: string, topic: string, partiti
             console.error('❌  Invalid Outright Detail');
         }
 
+        if (response.status == 'success') {
+            kafkaProducer.main(lastData[lastData.length - 1].message)
+            console.error('✅  Valid Outright Detail');
+        }
+
         console.log(`📦 Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
     } catch (error) {
         console.error(`❌ Error processing ASN Outright Barcode details: ${error}`);
@@ -277,6 +282,11 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
         if (response.status == 'failed') {
             kafkaProducer.main(lastData[lastData.length - 1].message)
             console.error('❌  Invalid SC Detail');
+        }
+
+        if (response.status == 'success') {
+            kafkaProducer.main(lastData[lastData.length - 1].message)
+            console.error('✅  Valid SC Detail');
         }
 
         console.log(`📦  Processing ASN SC Barcode details for topic: ${topic}, partition: ${partition}`);
