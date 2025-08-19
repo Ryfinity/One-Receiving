@@ -36,7 +36,7 @@ async function asnOutrightBarcode() {
             JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
                 ON adept.department_code = aob.department_code
             WHERE 1=1
-            AND ar.delivery_date = CURDATE()
+            AND ar.delivery_date = "2025-08-06"
             AND aob.qty IS NOT NULL
             AND ar.status = 1
             ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no;`;
@@ -81,7 +81,7 @@ async function asnScBarcode() {
                 ,avd.validation
                 ,aw.name AS dc_rdu_name
                 ,ar.delivery_date
-                ,adept.class_name
+                ,avd.class_name
             FROM asn_sc_barcode asb 
             JOIN asn_request ar
                     ON 1=1
@@ -100,7 +100,7 @@ async function asnScBarcode() {
             JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
                 ON adept.department_code = asb.dept_code
             WHERE 1=1
-            AND ar.delivery_date = CURDATE()
+            AND ar.delivery_date = "2025-08-06"
             AND ar.status = 1
             ORDER BY asb.asn_id, asb.store_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code`;
     

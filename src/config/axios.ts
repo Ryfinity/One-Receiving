@@ -1,5 +1,7 @@
 const axios = require('axios');
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 const instance = axios.create({
     baseURL: process.env.API_BASE_URL || 'http://localhost:8000',
     timeout: 10000,
