@@ -2,6 +2,7 @@
 // fileController.quantityFiles();
 
 // const oneReceivingController = require('./src/controllers/OneRecieivingController');
+// oneReceivingController.mmsConnection();
 // oneReceivingController.asnOutrightBarcode();
 // oneReceivingController.asnScBarcode();
 
@@ -13,6 +14,8 @@
 
 // const frappe = require("./src/services/frappe-api");
 // frappe.postLogin();
+
+// const mms = require("./src/config/mms");
 
 const { Hono } = require('hono');
 const or = require("./src/routes/oneReceivingRoutes");

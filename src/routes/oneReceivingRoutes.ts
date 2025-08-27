@@ -30,4 +30,12 @@ router.post('/submit-reject', async (c: any) => {
     return c.json(data);
 });
 
+// router.post('/posted-mms', async (c: any) => {
+//     const body = await c.req.json(); // 👈 parse JSON body
+    
+//     const data = await postedBarcode(body);
+//     return c.json(data);
+// });
+
+
 module.exports = router

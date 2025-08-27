@@ -1,5 +1,6 @@
 const asndatabase = require('../config/asn');
 const helpers = require('../utils/helpers');
+const { poolPromise, sql } = require('../config/mms');
 const kafkaProducer = require('../services/kafka-producer');
 const { postAsnOutrightBarcodeData, postAsnScBarcodeData, postAsnOutrightBarcodeDetailsData, postAsnScBarcodeDetailsData } = require('../services/frappe-api');
 
@@ -295,10 +296,130 @@ async function asnScBarcodeDetails(message: string, topic: string, partition: an
     }
 }
 
+async function mmsConnection() {
+    try {
+        const pool = await poolPromise;
+        // const result = await pool.request().query("SELECT * FROM OPENQUERY(mmsapc01, 'SELECT * FROM MMLSTLSL.SMDC40F2 WHERE VDRDATE = 240825 AND VDRTIME > 102030')");
+        const result = await pool.request().query("SELECT * FROM OPENQUERY(mmsapc01, 'SELECT * FROM MMLSTLSL.SMDC01F1 ')");
+        console.log(result.recordset);
+    } catch (err) {
+        console.error('❌  MMS Database Connection Error: ', err);
+        throw err;
+    }
+}
+
+async function insertMMSData(data: any[]) {
+    try {
+        const { postedBarcode } = require('../services/frappe-api');
+        const pool = await poolPromise;
+        const formattedDate = await helpers.formatDateToDDMMYY(new Date());
+        const formattedTime = await helpers.formatTimeToHHMMSS(new Date());
+        
+        for (const item of data) {
+            if(item.vendor_type === 'SC') {
+                // console.log("🔄  Inserting SC data into MMS...", item);
+                const query = `
+                    INSERT INTO OPENQUERY(mmsapc01, 'SELECT VDRVEND,
+                    VDRRFC, VDRDPT, VDRSDP, VDRCLS, VDRSTR, VDRBXS, VDRSTAT, 
+                    VDRUSER, VDRDATE, VDRTIME, VDPDATE, VDPTIME, NDRAMT, NDRREM
+                    FROM MMLSTLSL.SMDC40F2')
+                    VALUES (@VDRVEND, @VDRRFC, @VDRDPT, @VDRSDP, @VDRCLS, @VDRSTR, @VDRBXS, @VDRSTAT, @VDRUSER,
+                    @VDRDATE, @VDRTIME, @VDPDATE, @VDPTIME, @NDRAMT, @NDRREM)
+                `;
+                const result = await pool.request()
+                    .input('VDRVEND', sql.Int, parseInt(item.vendor_code))
+                    .input('VDRRFC', sql.Int, parseInt(item.po_no))
+                    .input('VDRDPT', sql.Int, parseInt(item.dept_code))
+                    .input('VDRSDP', sql.Int, parseInt(item.sub_dept_code))
+                    .input('VDRCLS', sql.Int, parseInt(item.class_code)  )
+                    .input('VDRSTR', sql.Int, parseInt(item.store_code))
+                    .input('VDRBXS', sql.Int, parseInt(item.total_box))
+                    .input('VDRSTAT', sql.VarChar, '')
+                    .input('VDRUSER', sql.VarChar, item.userid)
+                    .input('VDRDATE', sql.Int, formattedDate)
+                    .input('VDRTIME', sql.Int, formattedTime)
+                    .input('VDPDATE', sql.Int, '')
+                    .input('VDPTIME', sql.Int, '')
+                    .input('NDRAMT', sql.Int, parseFloat(item.amount))
+                    .input('NDRREM', sql.VarChar, '')
+                    .query(query);
+                    
+                console.log('✅  SC DB MMS data inserted:', result.rowsAffected);
+                await postedBarcode(item);
+
+            } else if(item.vendor_type === 'Outright') {
+                // console.log("🔄  Inserting Outright data into MMS...", item);
+                const queryFirst = `
+                    INSERT INTO OPENQUERY(mmsapc01, 'SELECT PONUMB,
+                    INUMBR, POLOC, PODQTY, PORQTY, POCQTY
+                    FROM MMLSTLSL.SMDC01F2')
+                    VALUES (@PONUMB, @INUMBR, @POLOC, @PODQTY, @PORQTY, @POCQTY)
+                `;
+                const resultFirst = await pool.request()
+                    .input('PONUMB', sql.Int, parseInt(item.po_no))
+                    .input('INUMBR', sql.Int, parseInt(item.sku_no))
+                    .input('POLOC', sql.Int, parseInt(item.store_code))
+                    .input('PODQTY', sql.Int, parseInt(item.total_box))
+                    .input('PORQTY', sql.Int, parseInt(item.total_box) )
+                    .input('POCQTY', sql.Int, parseInt(item.qty))
+                    .query(queryFirst);
+                    
+                console.log('✅  Outright 1st DB MMS data inserted:', resultFirst.rowsAffected);
+
+                const querySecond = `
+                    INSERT INTO OPENQUERY(mmsapc01, 'SELECT DCPON,
+                    DCRCV, DCINV, DCNUM, DCRQT, DCCNT, DCTAG
+                    FROM MMLSTLSL.SMDC01F')
+                    VALUES (@DCPON, @DCRCV, @DCINV, @DCNUM, @DCRQT, @DCCNT, @DCTAG)
+                `;
+                const resultSecond = await pool.request()
+                    .input('DCPON', sql.Int, parseInt(item.po_no))
+                    .input('DCRCV', sql.Int, '')
+                    .input('DCINV', sql.VarChar, item.invoice_no)
+                    .input('DCNUM', sql.Int, parseInt(item.sku_no))
+                    .input('DCRQT', sql.Int, parseInt(item.qty) )
+                    .input('DCCNT', sql.Int, parseInt(item.total_box))
+                    .input('DCTAG', sql.Int, '')
+                    .query(querySecond);
+                    
+                console.log('✅  Outright 2nd DB MMS data inserted:', resultSecond.rowsAffected);
+
+                const queryThird = `
+                    INSERT INTO OPENQUERY(mmsapc01, 'SELECT DCPON,
+                    DCCNT, DCDATE, DCTAG, DUSER
+                    FROM MMLSTLSL.SMDC01F1')
+                    VALUES (@DCPON, @DCCNT, @DCDATE, @DCTAG, @DUSER)
+                `;
+                const resultThird = await pool.request()
+                    .input('DCPON', sql.Int, parseInt(item.po_no))
+                    .input('DCCNT', sql.Int, parseInt(item.sku_count))
+                    .input('DCDATE', sql.Int, '')
+                    .input('DCTAG', sql.Int, '')
+                    .input('DUSER', sql.VarChar, item.userid)
+                    .query(queryThird);
+                    
+                console.log('✅  Outright 3rd DB MMS data inserted:', resultThird.rowsAffected);
+                await postedBarcode(item);
+                
+            } else {
+                console.log(`❓  Unknown vendor type: ${item.vendor_type}`);
+            }
+        }
+
+        return { message: 'MMS data insertion completed' };
+
+    } catch (err) {
+        console.error('❌ MMS Database Insert Error:', err);
+        throw err;
+    }
+}
+
 module.exports = {
     asnOutrightBarcode,
     asnScBarcode,
     asnOutrightBarcodeDetails,
     asnScBarcodeDetails,
-    asnBarcodeDetails
+    asnBarcodeDetails,
+    insertMMSData,
+    mmsConnection,
 };
