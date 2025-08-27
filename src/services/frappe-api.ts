@@ -149,7 +149,14 @@ async function getScOutrightDetails(data: any):  Promise<any> {
 async function submitSummary(data: any):  Promise<any> {
     try {
         const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.submit_sc_outright_barcode', data)
-        console.log('✅  ASN Submit SC and Outright Barcode Summary:', response.data);
+        console.log('✅  ASN Submit SC and Outright Barcode Summary:');
+
+        if (response.data.message.status == 'success') {
+            const { insertMMSData } = require('../controllers/OneRecieivingController');
+            console.log('🚀  Starting to insert data into MMS');    
+            await insertMMSData(response.data.message.data);  
+        }
+
         if (response.data.message.status == 'error') {
             console.error('❌  Need to logs this error');
         }
@@ -174,6 +181,20 @@ async function submitReject(data: any):  Promise<any> {
     }
 }
 
+async function postedBarcode(data: any): Promise<any> {
+    try {
+        const response = await axios.post('/api/method/smr_asn.api.or_asn_outright_barcode_api.posted_to_mms_sc_outright_barcode', data)
+        console.log('✅  ASN Posetd to MMS SC and Outright Barcode:', response.data);
+        if (response.data.message.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('❌  Error processing Posting Barcode to MMS:', error);
+    }
+}
+
 
 module.exports = {
     postHeaderData, 
@@ -188,5 +209,6 @@ module.exports = {
     getScOutrightSummary,
     getScOutrightDetails,
     submitSummary,
-    submitReject
+    submitReject,
+    postedBarcode
 };
