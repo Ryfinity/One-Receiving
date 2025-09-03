@@ -132,7 +132,7 @@ async function asnBarcodeDetails(message: string, topic: string, partition: any)
         const barcode = JSON.parse(data).barcode;
         const barcodes = barcode.split('\n');
         const identifier = barcodes[0].split(',')[0]; 
-
+        console.log(data)
         if (identifier == "ORRA") {
             await asnOutrightBarcodeDetails(message, topic, partition)
         } else if(identifier == "ORDS") {
@@ -142,7 +142,21 @@ async function asnBarcodeDetails(message: string, topic: string, partition: any)
         } else if(identifier == "SCRA") {
             await asnScBarcodeDetails(message, topic, partition)
         } else {
-            console.log("❓  Unknow Indentifier.")
+            const response = {
+                'clientid': JSON.parse(data).clientid,
+                'uid': JSON.parse(data).uid,
+                'pdtlocation': JSON.parse(data).pdtlocation,
+                'data': {
+                    "asnid": '',
+                    "reference": '',
+                    "reference_type": '',
+                    "vendorcode": '',
+                },
+                "status": 'failed',
+                "message": 'Unknown Indentifier.'
+            }
+            kafkaProducer.main(response);
+            console.log("❓  Unknown Indentifier.");
         }
     } catch (error) {
         console.error(`❌  Error processing ASN Barcode details: ${error}`);
@@ -217,9 +231,9 @@ async function asnOutrightBarcodeDetails(message: string, topic: string, partiti
             console.error('✅  Valid Outright Detail');
         }
 
-        console.log(`📦 Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
+        console.log(`📦  Processing ASN Outright Barcode details for topic: ${topic}, partition: ${partition}`);
     } catch (error) {
-        console.error(`❌ Error processing ASN Outright Barcode details: ${error}`);
+        console.error(`❌  Error processing ASN Outright Barcode details: ${error}`);
     }
 }
 
