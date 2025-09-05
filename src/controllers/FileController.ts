@@ -4,7 +4,7 @@ const fs = require('fs');
 const https = require("https");
 const parse = require('csv-parse/sync').parse;
 const readFile = require('node:fs/promises').readFile;
-const { postHeaderData, postDetailData, postQuantityData, postNonameData, postLogin } = require('../services/frappe-api');
+const { postHeaderData, postDetailData, postQuantityData, postNonameData, postLogin, postInventoryEnv } = require('../services/frappe-api');
 
 const s3_one_receiving_folder = process.env.S3_ONE_RECEIVING_FOLDER || 'uat/one_receiving/';
 const local_storage_folder = process.env.LOCAL_STORAGE_FOLDER || 'public/downloads/';
@@ -164,6 +164,63 @@ async function nonameFiles() {
     });
 }
 
+async function inventoryEnvFiles() {
+    const tempFiles = await S3.listAllFilesHeader(`${s3_one_receiving_folder+'inventory_env/'}`).catch(console.error);
+    const files = await removeFirstArray(tempFiles);
+    console.log(files);
+
+    files.forEach(async (file: any) => {
+        const filename = await getLastArray(file);
+        const signedUrl = await S3.getSignedUrlForS3File(`${s3_one_receiving_folder+'inventory_env/'+filename}`, 3600).catch(console.error);
+
+        https.get(signedUrl, (response: any) => {
+            const filePath = `${local_storage_folder}${filename}`;
+            const fileStream = fs.createWriteStream(`${filePath}`);
+            response.pipe(fileStream);
+
+            fileStream.on('error', (err: any) => {
+                console.error(`❌ Error writing file ${filename}:`, err);
+            });
+
+            fileStream.on('finish', async () => {
+                console.log(`✅  File ${filename} downloaded successfully.`);
+
+                const file = await readFile(filePath, 'utf8');
+                const splitPerLine = file.split("\n");
+                const arr:any = [];
+                splitPerLine.forEach((e: any) => {
+                    if (e.slice(1, 3).trim() != "") {
+                        const dept = e.slice(1, 3).trim();
+                        const subdept = e.slice(4, 6).trim();
+                        const clss = e.slice(7, 9).trim();
+                        const subclass = e.slice(10, 12).trim();
+                        const description = e.slice(13, 37).trim();
+                        const shortDescription = e.slice(38, 45).trim();
+                        
+                        const json = {
+                            dept: dept,
+                            sub_dept: subdept,
+                            class: clss,
+                            sub_class: subclass,
+                            description: description,
+                            short_description: shortDescription,
+                            env: 'TEST'
+                        }
+                        arr.push(json)
+                    }
+                    
+                });
+                await postInventoryEnv(arr);
+
+                fileStream.close(); 
+            });
+
+        }).on('error', (err: any) => {
+            console.error(`❌ Error downloading file ${filename}:`, err);
+        });
+    });
+}
+
 async function login(): Promise<any> {
     const response: any = await postLogin();
     return response;
@@ -174,5 +231,6 @@ module.exports = {
     detailFiles,
     quantityFiles,
     nonameFiles,
+    inventoryEnvFiles,
     login
 };

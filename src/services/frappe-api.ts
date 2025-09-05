@@ -195,6 +195,20 @@ async function postedBarcode(data: any): Promise<any> {
     }
 }
 
+async function postInventoryEnv(data: any): Promise<any> {
+    try {
+        const response = await axios.post('/api/method/smr_asn.api.or_inventory_env_api.insert_inventory_env_queue', data)
+        console.log('✅  ASN Inventory Env data posted successfully:', response.data);
+        if (response.data.message.status == 'error') {
+            console.error('❌  Need to logs this error');
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('❌  Error processing Posting Barcode to MMS:', error);
+    }
+} 
+
 
 module.exports = {
     postHeaderData, 
@@ -210,5 +224,6 @@ module.exports = {
     getScOutrightDetails,
     submitSummary,
     submitReject,
-    postedBarcode
+    postedBarcode,
+    postInventoryEnv
 };
