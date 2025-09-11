@@ -20,10 +20,11 @@ async function asnOutrightBarcode() {
                 ,aob.qty
                 ,aob.unit_cost
                 ,aob.total_box
-                ,aob.line_ender 
+                ,aob.line_ender
                 ,aw.name AS dc_rdu_name
-                ,ar.delivery_date
-            FROM asn_outright_barcode aob 
+                ,date_format(ar.delivery_date,'%Y-%m-%d') as delivery_date
+                ,adept.env
+            FROM asn_outright_barcode aob
             JOIN asn_request ar
                 ON 1=1
             AND aob.asn_id = ar.asn_id
@@ -31,10 +32,10 @@ async function asnOutrightBarcode() {
             JOIN asn_details ad
                 ON ad.asn_id = ar.asn_id
             AND ad.type = 2
-            AND aob.store_code = SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),1,INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')-1) 
+            AND aob.store_code = SUBSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),1,INSTR(REPLACE(ad.data,CONCAT(SUBSTRING_INDEX(ad.data, '|', 2),'|'),''),'|')-1)
             JOIN asn_warehouse aw
                 ON ar.warehouse_type = aw.dc
-            JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
+            JOIN (SELECT DISTINCT dept_code department_code, dept_name department_name, env FROM asn_env_dept WHERE env != 'GSP') adept
                 ON adept.department_code = aob.department_code
             WHERE 1=1
             AND ar.delivery_date = "2025-08-06"
@@ -75,20 +76,21 @@ async function asnScBarcode() {
                 ,adept.department_name
                 ,asb.sub_dept_code
                 ,asb.class_code
+                ,avd.class_name
                 ,asb.total_box
                 ,asb.box_no
                 ,asb.amount
-                ,asb.line_ender 
+                ,asb.line_ender
                 ,avd.validation
                 ,aw.name AS dc_rdu_name
-                ,ar.delivery_date
-                ,avd.class_name
-            FROM asn_sc_barcode asb 
+                ,date_format(ar.delivery_date,'%Y-%m-%d') as delivery_date
+                ,adept.env
+            FROM asn_sc_barcode asb
             JOIN asn_request ar
                     ON 1=1
             AND asb.asn_id = ar.asn_id
             JOIN asn_vdr_data avd
-                    ON asb.dr_number = avd.vdr_number 
+                    ON asb.dr_number = avd.vdr_number
             AND asb.dept_code=avd.dept_code  
             AND asb.sub_dept_code = avd.sub_dept_code
             AND asb.class_code = avd.class_code
@@ -97,8 +99,8 @@ async function asnScBarcode() {
             JOIN asn_warehouse aw
                 ON 1=1
             AND ar.warehouse_type = aw.dc
-            LEFT OUTER 
-            JOIN (SELECT DISTINCT department_code, department_name FROM asn_department_dc) adept
+            LEFT OUTER
+            JOIN (SELECT DISTINCT dept_code department_code, dept_name department_name, env FROM asn_env_dept WHERE env != 'GSP') adept
                 ON adept.department_code = asb.dept_code
             WHERE 1=1
             AND ar.delivery_date = "2025-08-06"
@@ -428,6 +430,106 @@ async function insertMMSData(data: any[]) {
     }
 }
 
+async function toMMS(data: any[], asn_ids: any) {
+    try {
+        const formattedDate = await helpers.formatDateToDDMMYY(new Date());
+        const formattedTime = await helpers.formatTimeToHHMMSS(new Date());
+
+        const scData:any = [];
+        const outrightObj:any = [];
+
+        const grouped = data.reduce((acc, item) => {
+            const key = `${item.po_no}_${item.store_code}`; // group by PO + Store
+            if (!acc[key]) {
+                acc[key] = {
+                asn_id: item.asn_id,
+                po_no: item.po_no,
+                store_code: item.store_code,
+                store_name: item.store_name.trim(),
+                vendor_code: item.vendor_code,
+                vendor_name: item.vendor_name,
+                status: item.status,
+                current_box: item.current_box,
+                total_box: item.total_box,
+                dept_code: item.dept_code,
+                sub_dept_code: item.sub_dept_code,
+                vendor_type: item.vendor_type,
+                userid: item.userid,
+                class_code: item.class_code,
+                amount: item.amount,
+                sku_count: item.sku_count,
+                items: []
+                };
+            }
+            acc[key].items.push({
+                po_no: item.po_no,
+                invoice_no: item.invoice_no,
+                sku_no: item.sku_no,
+                qty: item.qty,
+                total_box: item.total_box,
+                store_code: item.store_code
+            });
+
+            return acc;
+        }, {});
+
+        const groupedArray = Object.values(grouped);
+
+        groupedArray.forEach((item: any) => {
+            if (item.vendor_type === 'SC') {
+                scData.push({
+                    ENV: "LSP",
+                    TYPE: item.vendor_type,
+                    VDRVEND: item.vendor_code,
+                    VDRRFC: item.po_no,
+                    VDRDPT: item.dept_code,
+                    VDRSDP: item.sub_dept_code,
+                    VDRCLS: item.class_code,
+                    VDRSTR: item.store_code,
+                    VDRBXS: item.total_box,
+                    VDRUSER: item.userid,
+                    VDRDATE: formattedDate,
+                    VDRTIME: formattedTime,
+                    NDRAMT: '',
+                });
+            } else if (item.vendor_type === 'Outright') {
+                outrightObj.push({
+                    ENV: 'LSP',
+                    DCPO: item.po_no,
+                    DCCNT: item.total_box,
+                    DUSER: 'PDTUSER',
+                    Details: item.items.map((itm: any) => ({
+                        DCPON: itm.po_no,
+                        DCINV: itm.invoice_no,
+                        DCNUM: itm.sku_no,
+                        DCRQT: itm.qty,
+                        DCBOX: itm.total_box
+                    })),
+                    F2: item.items.map((itm: any) => ({
+                        DCPON: itm.po_no,
+                        DCNUM: itm.sku_no,
+                        POLOC: itm.store_code,
+                        PODQTY: itm.total_box,
+                        PORQTY: itm.total_box,
+                        POCQTY: itm.qty,
+                    }))
+                });
+            } else {
+                console.log(`❓  Unknown vendor type: ${item.vendor_type}`);
+                return;
+            }
+        });
+
+        console.log(JSON.stringify(outrightObj, null, 3));
+        console.log(JSON.stringify(scData, null, 3));
+        return;
+
+    } catch (err) {
+        console.error('❌ MMS Database Insert Error:', err);
+        throw err;
+    }
+}
+
 module.exports = {
     asnOutrightBarcode,
     asnScBarcode,
@@ -436,4 +538,5 @@ module.exports = {
     asnBarcodeDetails,
     insertMMSData,
     mmsConnection,
+    toMMS
 };
