@@ -152,9 +152,9 @@ async function submitSummary(data: any):  Promise<any> {
         console.log('✅  ASN Submit SC and Outright Barcode Summary:');
 
         if (response.data.message.status == 'success') {
-            const { insertMMSData } = require('../controllers/OneRecieivingController');
+            const { insertMMSData, toMMS } = require('../controllers/OneRecieivingController');
             console.log('🚀  Starting to insert data into MMS');    
-            await insertMMSData(response.data.message.data);  
+            await toMMS(response.data.message.data, response.data.message.asn_ids);  
         }
 
         if (response.data.message.status == 'error') {
