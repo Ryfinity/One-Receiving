@@ -24,6 +24,7 @@ async function asnOutrightBarcode() {
                 ,aw.name AS dc_rdu_name
                 ,date_format(ar.delivery_date,'%Y-%m-%d') as delivery_date
                 ,adept.env
+                ,CAST(CONCAT(adept.env,LPAD(aob.department_code,3,'0'),LPAD(aob.store_code,4,'0'),'OR',LPAD(ar.vendor_code,6,'0'),LPAD(aob.po_no,8,'0')) as CHAR(100)) as box_id_sum
             FROM asn_outright_barcode aob
             JOIN asn_request ar
                 ON 1=1
@@ -41,6 +42,7 @@ async function asnOutrightBarcode() {
             AND ar.delivery_date = "2025-08-06"
             AND aob.qty IS NOT NULL
             AND ar.status = 1
+            AND ar.download_status = 1
             ORDER BY aob.asn_id, aob.store_code, aob.department_code, aob.po_no, aob.sku_no;`;
 
         const [rows] = await asndatabase.query(`${query}`);
@@ -85,6 +87,7 @@ async function asnScBarcode() {
                 ,aw.name AS dc_rdu_name
                 ,date_format(ar.delivery_date,'%Y-%m-%d') as delivery_date
                 ,adept.env
+                ,CAST(CONCAT(adept.env,LPAD(asb.dept_code,3,'0'),LPAD(asb.store_code,4,'0'),'SS',LPAD(ar.vendor_code,6,'0'),LPAD(asb.dr_number,8,'0')) as CHAR(100)) as box_id_sum
             FROM asn_sc_barcode asb
             JOIN asn_request ar
                     ON 1=1
@@ -105,6 +108,7 @@ async function asnScBarcode() {
             WHERE 1=1
             AND ar.delivery_date = "2025-08-06"
             AND ar.status = 1
+            AND ar.download_status = 1
             ORDER BY asb.asn_id, asb.store_code, asb.dr_number, asb.dept_code, asb.sub_dept_code, asb.class_code`;
     
         const [rows] = await asndatabase.query(`${query}`);
